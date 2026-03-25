@@ -26,15 +26,6 @@ log.info(f"PDF_PATH={PDF_PATH}")
 log.info(f"REBUILD_EMBEDDINGS={REBUILD}")
 
 
-log.info("Loading embedding model...")
-
-model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2"
-)
-
-log.info("Model loaded")
-
-
 def get_conn():
 
     log.info("Connecting to DB...")
@@ -129,8 +120,8 @@ def chunk_markdown(text, chunk_size=500, overlap=100):
 
 
 
-def embed(texts):
-
+def embed(texts, model):
+    
     log.info(f"Embedding {len(texts)} chunks...")
 
     emb = model.encode(texts)
@@ -181,6 +172,7 @@ def main():
         log.info("REBUILD=true → clearing table")
         clear_table()
 
+    
     log.info("Searching PDF files...")
 
     pdf_files = glob.glob(f"{PDF_PATH}/*.pdf")
@@ -190,6 +182,14 @@ def main():
         return
 
     log.info(f"Found {len(pdf_files)} pdf")
+
+    log.info("Loading embedding model...")
+
+    model = SentenceTransformer(
+        "sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+    log.info("Model loaded")
 
     all_chunks = []
 
@@ -205,7 +205,7 @@ def main():
 
     log.info(f"Total chunks: {len(all_chunks)}")
 
-    embeddings = embed(all_chunks)
+    embeddings = embed(all_chunks, model)
 
     save_chunks(all_chunks, embeddings)
 
