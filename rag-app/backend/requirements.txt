@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 psycopg2-binary
-sqlalchemy
 pgvector
 sentence-transformers
-docling
-markdown-it-py
+transformers
+torch
 numpy
+tqdm

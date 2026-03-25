@@ -1,48 +1,79 @@
-from fastapi import FastAPI
-from app.schemas.users import UserIn, UserOut
 import os
 import psycopg2
-from pgvector.psycopg2 import register_vector
+from fastapi import FastAPI
 from sentence_transformers import SentenceTransformer
+from app.schemas.users import UserIn, UserOut
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+TOP_K_SHORT = 5
+TOP_K_LONG = 5
 
 app = FastAPI()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+model = SentenceTransformer(
+    "intfloat/multilingual-e5-base",
+    cache_folder="/models/cache"
+)
 
 def get_conn():
-    conn = psycopg2.connect(DATABASE_URL)
-    register_vector(conn)  # !!!
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
-def vector_search(query: str, top_k: int = 5):
-    query_emb = model.encode([query])[0].tolist()
+def embed_query(text: str):
+    q = f"query: {text}"
+    emb = model.encode(
+        [q],
+        normalize_embeddings=True,
+    )[0]
+    return emb.tolist()
 
+def search_short(query, top_k):
+    emb = embed_query(query)
     conn = get_conn()
     cur = conn.cursor()
-
     cur.execute(
         """
-        SELECT content
-        FROM documents
-        ORDER BY embedding <-> %s::vector
+        SELECT content,
+               embedding <=> %s::vector AS distance
+        FROM documents_short
+        ORDER BY embedding <=> %s::vector
         LIMIT %s
         """,
-        (query_emb, top_k)
+        (emb, emb, top_k),
     )
-
-    results = [row[0] for row in cur.fetchall()]
-
+    rows = cur.fetchall()
     cur.close()
     conn.close()
+    return rows
 
-    return results
+def search_long(query, top_k):
+    emb = embed_query(query)
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT content,
+               embedding <=> %s::vector AS distance
+        FROM documents_long
+        ORDER BY embedding <=> %s::vector
+        LIMIT %s
+        """,
+        (emb, emb, top_k),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
-@app.post("/api/question")
-async def ask_question(body: UserIn):
-    user_query = body.question
+@app.post("/api/question", response_model=UserOut)
+def search(q: UserIn):
 
-    docs = vector_search(user_query, top_k=5)
-    answer = "\n\n---\n\n".join(docs)
+    short_rows = search_short(q.question, 5)
+    long_rows = search_long(q.question, 5)
 
-    return UserOut(answer=answer)
+    short = [r[0] for r in short_rows]
+    long = [r[0] for r in long_rows]
+
+    return UserOut(
+        short=short,
+        long=long,
+    )

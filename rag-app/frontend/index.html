@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Помощник по дискре</title>
+  <title>Помощник</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -110,7 +110,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Привет, я RAG. Давай я тебе помогу!</h1>
+    <h1>Я готов ответить на ваш вопрос!</h1>
     
     <form id="questionForm">
       <div class="form-group">
@@ -175,7 +175,10 @@
         }
 
         const data = await response.json();
-        answerText.textContent = data.answer;
+        const parts = [];
+        if (data.short?.length) parts.push('Кратко:\n' + data.short.join('\n'));
+        if (data.long?.length) parts.push('Подробнее:\n' + data.long.join('\n'));
+        answerText.textContent = parts.join('\n\n') || 'Нет ответа';
         answerBox.classList.add('visible');
         questionInput.value = '';
         charCount.textContent = '0';
