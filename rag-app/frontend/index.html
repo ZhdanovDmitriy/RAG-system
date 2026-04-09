@@ -150,6 +150,15 @@
       charCount.textContent = questionInput.value.length;
     });
 
+    // 🆕 Вспомогательная функция: нумерует фрагменты
+    function formatFragments(fragments, title) {
+      if (!fragments || fragments.length === 0) return '';
+      const numbered = fragments
+        .map((fragment, index) => `${index + 1}. ${fragment}`)
+        .join('\n');
+      return `${title}:\n${numbered}`;
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -176,12 +185,12 @@
 
         const data = await response.json();
         const parts = [];
-        if (data.short?.length) parts.push('Кратко:\n' + data.short.join('\n'));
-        if (data.long?.length) parts.push('Подробнее:\n' + data.long.join('\n'));
+        
+        if (data.short?.length) parts.push(formatFragments(data.short, 'Кратко'));
+        if (data.long?.length) parts.push(formatFragments(data.long, 'Подробнее'));
+        
         answerText.textContent = parts.join('\n\n') || 'Нет ответа';
         answerBox.classList.add('visible');
-        questionInput.value = '';
-        charCount.textContent = '0';
 
       } catch (err) {
         errorBox.textContent = `❌ ${err.message}`;
