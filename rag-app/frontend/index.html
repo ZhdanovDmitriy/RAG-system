@@ -21,13 +21,43 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
     h1 {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       color: #1a1a2e;
       font-size: 1.5rem;
       text-align: center;
     }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 8px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      border-radius: 8px 8px 0 0;
+    }
+    .tab-btn:hover { color: #4f46e5; }
+    .tab-btn.active {
+      color: #4f46e5;
+      border-bottom-color: #4f46e5;
+      background: #eef2ff;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ===== FORM ===== */
     .form-group { margin-bottom: 16px; }
-    
     label {
       display: block;
       margin-bottom: 6px;
@@ -106,37 +136,203 @@
       display: none;
     }
     .loading.visible { display: block; }
+
+    /* ===== TEST ===== */
+    .test-intro {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4b5563;
+    }
+    .test-question-block {
+      margin-bottom: 20px;
+      padding: 14px;
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    .test-question-block .q-number {
+      font-weight: 600;
+      color: #4f46e5;
+      margin-bottom: 6px;
+    }
+    .test-question-block .q-text {
+      margin-bottom: 10px;
+      color: #1a1a2e;
+      font-weight: 500;
+    }
+    .test-question-block textarea {
+      min-height: 70px;
+    }
+
+    /* Результаты теста */
+    .test-result-summary {
+      text-align: center;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .test-result-summary.grade-excellent {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .test-result-summary.grade-good {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .test-result-summary.grade-satisfactory {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .test-result-summary.grade-unsatisfactory {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    .grade-score {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+    .grade-label {
+      font-size: 1.1rem;
+      margin-top: 4px;
+    }
+
+    .result-item {
+      padding: 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border-left: 4px solid;
+    }
+    .result-item.correct {
+      background: #f0fdf4;
+      border-color: #22c55e;
+    }
+    .result-item.incorrect {
+      background: #fef2f2;
+      border-color: #ef4444;
+    }
+    .result-item .r-q {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #1a1a2e;
+    }
+    .result-item .r-status {
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+    .result-item.correct .r-status { color: #16a34a; }
+    .result-item.incorrect .r-status { color: #dc2626; }
+    .result-item .r-similarity {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+    .result-item .r-correct-answer {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: #374151;
+      background: #fff;
+      padding: 8px;
+      border-radius: 6px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn-group button { flex: 1; }
+    .btn-secondary {
+      background: #6b7280;
+    }
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Я готов ответить на ваш вопрос!</h1>
-    
-    <form id="questionForm">
-      <div class="form-group">
-        <label for="question">Ваш вопрос *</label>
-        <textarea 
-          id="question" 
-          name="question" 
-          required 
-          minlength="1" 
-          maxlength="1000"
-          placeholder="Напишите ваш вопрос здесь..."></textarea>
-        <div class="hint"><span id="charCount">0</span>/1000</div>
+    <h1>Помощник</h1>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="qa">💬 Вопрос-ответ</button>
+      <button class="tab-btn" data-tab="test">📝 Тест</button>
+    </div>
+
+    <!-- QA TAB -->
+    <div class="tab-content active" id="qaTab">
+      <form id="questionForm">
+        <div class="form-group">
+          <label for="question">Ваш вопрос *</label>
+          <textarea
+            id="question"
+            name="question"
+            required
+            minlength="1"
+            maxlength="1000"
+            placeholder="Напишите ваш вопрос здесь..."></textarea>
+          <div class="hint"><span id="charCount">0</span>/1000</div>
+        </div>
+        <button type="submit" id="submitBtn">Отправить</button>
+      </form>
+
+      <div class="loading" id="loading">⏳ Думаю...</div>
+      <div class="error" id="error"></div>
+
+      <div class="answer-box" id="answerBox">
+        <div class="answer-label">💡 Ответ:</div>
+        <div class="answer-text" id="answerText"></div>
       </div>
-      <button type="submit" id="submitBtn">Отправить</button>
-    </form>
+    </div>
 
-    <div class="loading" id="loading">⏳ Думаю...</div>
-    <div class="error" id="error"></div>
+    <!-- TEST TAB -->
+    <div class="tab-content" id="testTab">
+      <!-- Intro screen -->
+      <div id="testIntro">
+        <p class="test-intro">Тест из 5 вопросов со свободным ответом по материалу. Ответьте на вопросы, чтобы проверить свои знания.</p>
+        <button id="generateTestBtn">Сгенерировать тест</button>
+      </div>
 
-    <div class="answer-box" id="answerBox">
-      <div class="answer-label">💡 Ответ:</div>
-      <div class="answer-text" id="answerText"></div>
+      <!-- Test form -->
+      <div id="testFormContainer" class="hidden">
+        <form id="testForm">
+          <div id="testQuestionsContainer"></div>
+          <button type="submit" id="testSubmitBtn">Отправить на проверку</button>
+        </form>
+      </div>
+
+      <!-- Test results -->
+      <div id="testResultsContainer" class="hidden">
+        <div id="testResultSummary"></div>
+        <div id="testResultDetails"></div>
+        <div class="btn-group">
+          <button id="retryTestBtn">🔄 Попробовать ещё</button>
+          <button id="helpMaterialBtn" class="btn-secondary">💬 Помощь по материалу</button>
+        </div>
+      </div>
+
+      <div class="loading" id="testLoading">⏳ Загрузка теста...</div>
+      <div class="error" id="testError"></div>
     </div>
   </div>
 
   <script>
+    // ===== TAB SWITCHING =====
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const qaTab = document.getElementById('qaTab');
+    const testTab = document.getElementById('testTab');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        qaTab.classList.toggle('active', btn.dataset.tab === 'qa');
+        testTab.classList.toggle('active', btn.dataset.tab === 'test');
+      });
+    });
+
+    // ===== QA SECTION =====
     const form = document.getElementById('questionForm');
     const questionInput = document.getElementById('question');
     const charCount = document.getElementById('charCount');
@@ -150,7 +346,6 @@
       charCount.textContent = questionInput.value.length;
     });
 
-    // 🆕 Вспомогательная функция: нумерует фрагменты
     function formatFragments(fragments, title) {
       if (!fragments || fragments.length === 0) return '';
       const numbered = fragments
@@ -161,15 +356,12 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
       errorBox.classList.remove('visible');
       answerBox.classList.remove('visible');
       loading.classList.add('visible');
       submitBtn.disabled = true;
 
-      const payload = {
-        question: questionInput.value.trim()
-      };
+      const payload = { question: questionInput.value.trim() };
 
       try {
         const response = await fetch('/api/question', {
@@ -185,21 +377,206 @@
 
         const data = await response.json();
         const parts = [];
-        
+
         if (data.short?.length) parts.push(formatFragments(data.short, 'Кратко'));
         if (data.long?.length) parts.push(formatFragments(data.long, 'Подробнее'));
-        
+
         answerText.textContent = parts.join('\n\n') || 'Нет ответа';
         answerBox.classList.add('visible');
-
       } catch (err) {
         errorBox.textContent = `❌ ${err.message}`;
         errorBox.classList.add('visible');
-        console.error('Request failed:', err);
       } finally {
         loading.classList.remove('visible');
         submitBtn.disabled = false;
       }
+    });
+
+    // ===== TEST SECTION =====
+    const generateTestBtn = document.getElementById('generateTestBtn');
+    const testFormContainer = document.getElementById('testFormContainer');
+    const testIntro = document.getElementById('testIntro');
+    const testQuestionsContainer = document.getElementById('testQuestionsContainer');
+    const testForm = document.getElementById('testForm');
+    const testSubmitBtn = document.getElementById('testSubmitBtn');
+    const testLoadingEl = document.getElementById('testLoading');
+    const testErrorEl = document.getElementById('testError');
+    const testResultsContainer = document.getElementById('testResultsContainer');
+    const testResultSummary = document.getElementById('testResultSummary');
+    const testResultDetails = document.getElementById('testResultDetails');
+    const retryTestBtn = document.getElementById('retryTestBtn');
+    const helpMaterialBtn = document.getElementById('helpMaterialBtn');
+
+    let currentTestQuestions = [];
+
+    function showTestError(msg) {
+      testErrorEl.textContent = `❌ ${msg}`;
+      testErrorEl.classList.add('visible');
+    }
+
+    function hideTestError() {
+      testErrorEl.classList.remove('visible');
+    }
+
+    // Генерация теста
+    generateTestBtn.addEventListener('click', async () => {
+      hideTestError();
+      testLoadingEl.classList.add('visible');
+      generateTestBtn.disabled = true;
+
+      try {
+        const response = await fetch('/api/test/generate');
+        if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+
+        const data = await response.json();
+        currentTestQuestions = data.questions;
+
+        renderTestForm(data.questions);
+
+        testIntro.classList.add('hidden');
+        testResultsContainer.classList.add('hidden');
+        testFormContainer.classList.remove('hidden');
+      } catch (err) {
+        showTestError(err.message);
+      } finally {
+        testLoadingEl.classList.remove('visible');
+        generateTestBtn.disabled = false;
+      }
+    });
+
+    function renderTestForm(questions) {
+      testQuestionsContainer.innerHTML = '';
+
+      questions.forEach((q, i) => {
+        const block = document.createElement('div');
+        block.className = 'test-question-block';
+        block.innerHTML = `
+          <div class="q-number">Вопрос ${i + 1}</div>
+          <div class="q-text">${q.question}</div>
+          <textarea
+            name="answer_${q.id}"
+            data-question-id="${q.id}"
+            placeholder="Ваш ответ (можно оставить пустым)"
+            rows="3"></textarea>
+        `;
+        testQuestionsContainer.appendChild(block);
+      });
+    }
+
+    // Отправка теста на проверку
+    testForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideTestError();
+      testLoadingEl.classList.add('visible');
+      testSubmitBtn.disabled = true;
+
+      const textareas = testQuestionsContainer.querySelectorAll('textarea');
+      const answers = [];
+
+      textareas.forEach(ta => {
+        answers.push({
+          question_id: parseInt(ta.dataset.questionId),
+          answer: ta.value.trim()
+        });
+      });
+
+      try {
+        const response = await fetch('/api/test/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers })
+        });
+
+        if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+
+        const result = await response.json();
+        renderTestResults(result);
+
+        testFormContainer.classList.add('hidden');
+        testResultsContainer.classList.remove('hidden');
+      } catch (err) {
+        showTestError(err.message);
+      } finally {
+        testLoadingEl.classList.remove('visible');
+        testSubmitBtn.disabled = false;
+      }
+    });
+
+    function renderTestResults(result) {
+      // Сводка
+      let gradeClass = 'grade-unsatisfactory';
+      if (result.grade === 'Отлично') gradeClass = 'grade-excellent';
+      else if (result.grade === 'Хорошо') gradeClass = 'grade-good';
+      else if (result.grade === 'Удовлетворительно') gradeClass = 'grade-satisfactory';
+
+      testResultSummary.innerHTML = `
+        <div class="test-result-summary ${gradeClass}">
+          <div class="grade-score">${result.score}/${result.total}</div>
+          <div class="grade-label">${result.grade}</div>
+        </div>
+      `;
+
+      // Детализация
+      testResultDetails.innerHTML = '';
+
+      result.results.forEach((r, i) => {
+        const item = document.createElement('div');
+        item.className = `result-item ${r.is_correct ? 'correct' : 'incorrect'}`;
+
+        let html = `
+          <div class="r-q">${i + 1}. ${r.question}</div>
+          <div class="r-status">${r.is_correct ? '✅ Правильно' : '❌ Неправильно'}</div>
+          <div class="r-similarity">Сходство: ${(r.similarity * 100).toFixed(1)}%</div>
+        `;
+
+        if (!r.is_correct && r.best_correct_answer) {
+          html += `
+            <div class="r-correct-answer">
+              <strong>Правильный ответ:</strong> ${r.best_correct_answer}
+            </div>
+          `;
+        }
+
+        item.innerHTML = html;
+        testResultDetails.appendChild(item);
+      });
+    }
+
+    // Попробовать ещё — генерируем новый тест
+    retryTestBtn.addEventListener('click', async () => {
+      hideTestError();
+      testResultsContainer.classList.add('hidden');
+      testLoadingEl.classList.add('visible');
+
+      try {
+        const response = await fetch('/api/test/generate');
+        if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+
+        const data = await response.json();
+        currentTestQuestions = data.questions;
+        renderTestForm(data.questions);
+
+        testFormContainer.classList.remove('hidden');
+      } catch (err) {
+        showTestError(err.message);
+      } finally {
+        testLoadingEl.classList.remove('visible');
+      }
+    });
+
+    // Помощь по материалу — переключаемся на QA
+    helpMaterialBtn.addEventListener('click', () => {
+      // Переключаем вкладку
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabBtns[0].classList.add('active');
+      qaTab.classList.add('active');
+      testTab.classList.remove('active');
+
+      // Сбрасываем тест в начальное состояние
+      testResultsContainer.classList.add('hidden');
+      testFormContainer.classList.add('hidden');
+      testIntro.classList.remove('hidden');
+      hideTestError();
     });
   </script>
 </body>
