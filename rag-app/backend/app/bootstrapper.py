@@ -1,5 +1,6 @@
 import os
 import glob
+import json
 import logging
 
 import psycopg2
@@ -193,6 +194,92 @@ def save_long(chunks, embeddings):
     conn.close()
 
 
+def has_test_data():
+
+    try:
+
+        conn = get_conn()
+        cur = conn.cursor()
+
+        cur.execute("SELECT count(*) FROM test_answer_embeddings")
+
+        count = cur.fetchone()[0]
+
+        cur.close()
+        conn.close()
+
+        log.info(f"test_answer_embeddings rows = {count}")
+
+        return count > 0
+
+    except Exception as e:
+
+        log.error(e)
+
+        return False
+
+
+def save_test_questions_meta(questions):
+
+    log.info("Saving test questions metadata")
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    for q in questions:
+        cur.execute(
+            """
+            INSERT INTO test_questions (id, question_text)
+            VALUES (%s, %s)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (q["id"], q["question"]),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    log.info(f"Test questions metadata saved: {len(questions)}")
+
+
+def save_test_answers(questions, embeddings_dict):
+
+    log.info("Saving test answers")
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    total = 0
+
+    for q in questions:
+        qid = q["id"]
+        for answer in q["answers"]:
+            emb_key = f"{qid}_{answer}"
+            if emb_key in embeddings_dict:
+                emb = embeddings_dict[emb_key]
+                cur.execute(
+                    """
+                    INSERT INTO test_answer_embeddings
+                    (question_id, answer_text, embedding)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (
+                        qid,
+                        answer,
+                        emb.tolist(),
+                    ),
+                )
+                total += 1
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    log.info(f"Total test answers saved: {total}")
+
+
 def main():
 
     log.info("BOOTSTRAPPER START")
@@ -201,11 +288,9 @@ def main():
 
         if not REBUILD:
             log.info("Data exists -> skip")
-            return
-
-        log.info("REBUILD=true")
-
-        clear_tables()
+        else:
+            log.info("REBUILD=true")
+            clear_tables()
 
     txt_files = glob.glob(f"{TXT_PATH}/*.txt")
 
@@ -225,48 +310,106 @@ def main():
 
     log.info("Model loaded")
 
-    short_all = []
-    long_all = []
+    # --- Документы ---
+    need_docs = not has_data() or REBUILD
 
-    for file in txt_files:
+    if need_docs and txt_files:
 
-        text = read_txt(file)
+        short_all = []
+        long_all = []
 
-        short_chunks = chunk_tokens(
-            text,
+        for file in txt_files:
+
+            text = read_txt(file)
+
+            short_chunks = chunk_tokens(
+                text,
+                model,
+                chunk_size=15,
+                overlap=3,
+            )
+
+            long_chunks = chunk_tokens(
+                text,
+                model,
+                chunk_size=100,
+                overlap=20,
+            )
+
+            short_all.extend(short_chunks)
+            long_all.extend(long_chunks)
+
+        log.info(f"Total short = {len(short_all)}")
+        log.info(f"Total long = {len(long_all)}")
+
+        short_emb = embed(
+            short_all,
             model,
-            chunk_size=15,
-            overlap=3,
+            prefix="passage",
         )
 
-        long_chunks = chunk_tokens(
-            text,
+        long_emb = embed(
+            long_all,
             model,
-            chunk_size=100,
-            overlap=20,
+            prefix="passage",
         )
 
-        short_all.extend(short_chunks)
-        long_all.extend(long_chunks)
+        save_short(short_all, short_emb)
+        save_long(long_all, long_emb)
 
-    log.info(f"Total short = {len(short_all)}")
-    log.info(f"Total long = {len(long_all)}")
+    # --- Тестовые вопросы ---
+    test_json_path = f"{TXT_PATH}/test_questions.json"
 
-    short_emb = embed(
-        short_all,
-        model,
-        prefix="passage",
-    )
+    if os.path.exists(test_json_path):
 
-    long_emb = embed(
-        long_all,
-        model,
-        prefix="passage",
-    )
+        need_rebuild_test = not has_test_data() or REBUILD
 
-    save_short(short_all, short_emb)
+        with open(test_json_path, "r", encoding="utf-8") as f:
+            questions = json.load(f)
 
-    save_long(long_all, long_emb)
+        log.info(f"Test questions loaded: {len(questions)}")
+
+        if need_rebuild_test:
+
+            if has_test_data():
+                log.info("Rebuilding test embeddings")
+                conn = get_conn()
+                cur = conn.cursor()
+                cur.execute("TRUNCATE TABLE test_answer_embeddings")
+                conn.commit()
+                cur.close()
+                conn.close()
+
+            # Сохраняем метаданные вопросов в БД
+            save_test_questions_meta(questions)
+
+            answer_texts = []
+            answer_keys = []
+
+            for q in questions:
+                qid = q["id"]
+                for answer in q["answers"]:
+                    answer_texts.append(f"passage: {answer}")
+                    answer_keys.append(f"{qid}_{answer}")
+
+            if answer_texts:
+
+                test_emb = model.encode(
+                    answer_texts,
+                    normalize_embeddings=True,
+                    show_progress_bar=True,
+                )
+
+                embeddings_dict = {
+                    key: emb
+                    for key, emb in zip(answer_keys, test_emb)
+                }
+
+                save_test_answers(questions, embeddings_dict)
+
+            log.info("Test embeddings saved")
+        else:
+            log.info("Test data exists -> skip")
 
     log.info("BOOTSTRAPPER DONE")
 

@@ -1,10 +1,14 @@
 import os
+import json
+import random
 import psycopg2
+import numpy as np
 from fastapi import FastAPI
 from sentence_transformers import SentenceTransformer
-from app.schemas.users import UserIn, UserOut
+from app.schemas.users import UserIn, UserOut, TestResponse, TestQuestion, TestSubmission, TestResult, TestResultItem
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+SIMILARITY_THRESHOLD = 0.85  # порог косинусного сходства
 TOP_K_SHORT = 5
 TOP_K_LONG = 5
 
@@ -125,4 +129,137 @@ def search(q: UserIn):
     return UserOut(
         short=short,
         long=long,
+    )
+
+
+# ========================
+#  TEST ENDPOINTS
+# ========================
+
+
+def load_test_questions_from_db():
+    """Загружает вопросы из БД."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, question_text FROM test_questions ORDER BY id")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [{"id": r[0], "question": r[1]} for r in rows]
+
+
+@app.get("/api/test/generate", response_model=TestResponse)
+def generate_test():
+    questions = load_test_questions_from_db()
+    # Случайные 5 из всех
+    selected = random.sample(questions, k=5)
+    return TestResponse(
+        questions=[
+            TestQuestion(id=q["id"], question=q["question"])
+            for q in selected
+        ]
+    )
+
+
+def embed_text(text: str):
+    emb = model.encode(
+        [text],
+        normalize_embeddings=True,
+    )[0]
+    return emb.tolist()
+
+
+def find_best_match_for_question(question_id: int, user_emb):
+    """Ищем лучший ответ для данного вопроса среди эталонных эмбеддингов."""
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT answer_text,
+               1 - (embedding <=> %s::vector) AS similarity
+        FROM test_answer_embeddings
+        WHERE question_id = %s
+        ORDER BY embedding <=> %s::vector
+        LIMIT 1
+        """,
+        (user_emb, question_id, user_emb),
+    )
+
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row is None:
+        return None, 0.0
+
+    return row[0], row[1]
+
+
+@app.post("/api/test/submit", response_model=TestResult)
+def submit_test(submission: TestSubmission):
+    questions = load_test_questions_from_db()
+    q_map = {q["id"]: q for q in questions}
+
+    results = []
+    score = 0
+
+    for ans in submission.answers:
+        q_id = ans.question_id
+        user_answer = ans.answer.strip()
+
+        question_text = q_map[q_id]["question"]
+
+        if not user_answer:
+            # Пустой ответ — автоматически неправильный
+            best_answer, _ = find_best_match_for_question(q_id, [0.0] * 768)
+            results.append(
+                TestResultItem(
+                    question_id=q_id,
+                    question=question_text,
+                    is_correct=False,
+                    similarity=0.0,
+                    best_correct_answer=best_answer,
+                )
+            )
+            continue
+
+        user_emb = embed_text(f"query: {user_answer}")
+
+        best_answer, similarity = find_best_match_for_question(
+            q_id, user_emb
+        )
+
+        # similarity = 1 - cosine_distance, т.к. embeddings нормализованы
+        # Это и есть косинусное сходство
+        is_correct = similarity >= SIMILARITY_THRESHOLD
+
+        if is_correct:
+            score += 1
+
+        results.append(
+            TestResultItem(
+                question_id=q_id,
+                question=question_text,
+                is_correct=is_correct,
+                similarity=round(similarity, 4),
+                best_correct_answer=best_answer,
+            )
+        )
+
+    # Оценка
+    if score <= 2:
+        grade = "Неудовлетворительно"
+    elif score == 3:
+        grade = "Удовлетворительно"
+    elif score == 4:
+        grade = "Хорошо"
+    else:
+        grade = "Отлично"
+
+    return TestResult(
+        score=score,
+        total=5,
+        grade=grade,
+        results=results,
     )
